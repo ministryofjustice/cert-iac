@@ -1,0 +1,32 @@
+name: 'Release State Lock'
+
+on:
+  workflow_dispatch:
+    inputs:
+      directory:
+        description: 'Directory to execute Terraform'
+        required: true
+        type: string
+      lockId:
+        description: 'The LockID of the state lock'
+        required: true
+        type: string
+
+jobs:
+  terraform-state-unlock:
+    name: Terraform State Unlock
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hashicorp/setup-terraform@v2
+      - env:
+          AWS_DEFAULT_REGION: "eu-west-2"
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_STATE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_STATE_SECRET_ACCESS_KEY }}
+          DIRECTORY: ${{ inputs.directory }}
+          LOCK_ID: ${{ inputs.lockId }}
+        run: |
+          cd terraform/${DIRECTORY}
+          terraform init -backend-config="../../backend.hcl" -backend-config="key=${DIRECTORY}/terraform.tfstate"
+          terraform force-unlock -force "$LOCK_ID" 

@@ -1,0 +1,47 @@
+name: 'PR Checks'
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  terraform-changes:
+    name: Get All Top Level Directories Changed Under `terraform/`
+    outputs:
+      directories: ${{ steps.changed-terraform-directories.outputs.matrix }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: git fetch origin main:refs/remotes/origin/main
+      - id: changed-terraform-directories
+        run: |
+          top_level_directories_changed=$(git diff origin/main --name-only -- terraform/   `# only compare files changed under the "terraform/" directory` \
+            | sed 's/^terraform\///'                                                       `# removes "terraform/" at the start of the string i.e. "terraform/front-end/main.tf" -> "front-end/main.tf"` \
+            | sed -E 's_/(.*)__'                                                           `# removes everything after the first "/" i.e. "front-end/main.tf" -> "front-end"` \
+            | awk '!seen[$0]++'                                                            `# remove duplicates from list i.e. "front-end\nfront-end" -> "front-end"`\
+            | awk '{ printf("\"%s\",",$0) } END { print s }'                               `# converts multiline string to single line, wrapping each line contents with "", i.e. 'front-end\nbackend' -> '"front-end","backend",'` \
+          )
+          
+          # create a JSON object to be outputted with list of directories
+          echo "matrix={\"matrix\":[${top_level_directories_changed}]}" >> "$GITHUB_OUTPUT"
+
+  terraform-plan:
+    name: Terraform Plan
+    needs: terraform-changes
+    strategy:
+      matrix:
+        directory: ${{ fromJSON(needs.terraform-changes.outputs.directories).matrix }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hashicorp/setup-terraform@v2
+      - env:
+          AWS_DEFAULT_REGION: "eu-west-2"
+          GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_STATE_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_STATE_SECRET_ACCESS_KEY }}
+          DIRECTORY: ${{ matrix.directory }}
+        run: |
+          cd terraform/${DIRECTORY}
+          terraform init -backend-config="../../backend.hcl" -backend-config="key=${DIRECTORY}/terraform.tfstate"
+          terraform plan -input=false
