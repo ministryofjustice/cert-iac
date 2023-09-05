@@ -11,7 +11,7 @@ jobs:
       directories: ${{ steps.changed-terraform-directories.outputs.matrix }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: git fetch origin main:refs/remotes/origin/main
       - id: changed-terraform-directories
         run: |
@@ -33,7 +33,7 @@ jobs:
         directory: ${{ fromJSON(needs.terraform-changes.outputs.directories).matrix }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v2
       - env:
           AWS_DEFAULT_REGION: "eu-west-2"
