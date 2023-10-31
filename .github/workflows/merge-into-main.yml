@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: hashicorp/setup-terraform@v2
+      - uses: hashicorp/setup-terraform@v3
       - env:
           AWS_DEFAULT_REGION: "eu-west-2"
           GITHUB_TOKEN: ${{ secrets.GH_ACCESS_TOKEN }}
